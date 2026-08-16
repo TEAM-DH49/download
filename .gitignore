@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+temp_downloads/
+*.mp4
+*.jpg
+*.png
+*.db
+bot.lock
+.vercel/

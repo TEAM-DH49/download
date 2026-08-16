@@ -1,0 +1,20 @@
+{
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-74f2b09c-009b-4379-a9b4-b4aa0fdcef6b"
+      },
+      "enabled": true
+    },
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer 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"
+      },
+      "enabled": true
+    }
+  }
+}
