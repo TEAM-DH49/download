@@ -25,7 +25,7 @@ def get_conn():
         conn.autocommit = False
         return conn
     elif HAS_SQLITE:
-        DB_PATH = os.path.join(os.path.expanduser("~"), "download", "bot_data.db")
+        DB_PATH = os.path.join(os.path.expanduser("~"), "pvt", "bot_data.db")
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn

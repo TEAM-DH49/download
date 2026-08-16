@@ -1,9 +1,6 @@
 import asyncio
 import logging
 import os
-import io
-import csv
-import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +18,7 @@ from telegram import (
     BotCommandScopeAllChatAdministrators,
     MenuButtonCommands,
 )
+from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -89,7 +87,6 @@ queue_processing = False
 
 
 async def get_unjoined_channels(bot, user_id: int):
-    """Return list of required-channel dicts the user has NOT joined yet."""
     channels = get_required_channels()
     if not channels:
         return []
@@ -258,7 +255,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if "video" in media_type or media_path.endswith('.mp4'):
                 for attempt in range(3):
                     try:
-                        await update.message.reply_video(f, caption=caption[:1024])
+                        await update.message.reply_video(f, caption="")
                         break
                     except Exception as e:
                         if attempt < 2:
@@ -269,7 +266,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 for attempt in range(3):
                     try:
-                        await update.message.reply_photo(f, caption=caption[:1024])
+                        await update.message.reply_photo(f, caption="")
                         break
                     except Exception as e:
                         if attempt < 2:
@@ -355,7 +352,7 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         id="1",
                         video_url=media_path,
                         title="Instagram Reel/Video",
-                        caption=caption[:1024] if caption else None,
+                        caption="",
                         thumb_url="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/150px-Instagram_icon.png"
                     )
                 )
@@ -365,7 +362,7 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         id="1",
                         photo_url=media_path,
                         title="Instagram Photo",
-                        caption=caption[:1024] if caption else None,
+                        caption="",
                         thumb_url="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/150px-Instagram_icon.png"
                     )
                 )
@@ -912,8 +909,8 @@ async def commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/checkapi - Check API status\n"
             "/broadcast <msg> - Send message to all users\n"
             "/maintenance on/off - Toggle maintenance mode\n"
-            "/cleardownloads - Delete downloads older than 30 days\n"
-            "/channels - Manage required channels\n"
+            "/cleardownloads - Delete old downloads\n"
+            "/channels - Manage channels\n"
             "/channelsadd @username - Add required channel\n"
             "/channelsremove <id> - Remove required channel\n"
             "/premium <id> [days] - Give premium\n"
@@ -926,7 +923,7 @@ async def commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/topusers - Top downloaders\n"
             "/ban <user_id> - Ban user\n"
             "/unban <user_id> - Unban user\n"
-            "/makeadmin <user_id> - Make admin\n"
+            "/makeadmin <user_id> - Make a user admin\n"
         )
 
     await update.message.reply_text(text)
@@ -991,24 +988,7 @@ async def post_init(application):
     )
 
 
-async def queue_worker():
-    global queue_processing
-    while True:
-        queue_processing = True
-        item = get_next_queue_item()
-        if item:
-            try:
-                media_path, caption, media_type, error = await download_instagram(item["url"])
-                mark_queue_item_processed(item["id"], "completed" if media_path else "failed")
-            except Exception as e:
-                logger.error(f"Queue worker error: {e}")
-                mark_queue_item_processed(item["id"], "failed")
-        else:
-            queue_processing = False
-            await asyncio.sleep(5)
-
-
-def create_bot_app() -> ApplicationBuilder:
+def create_bot_app():
     init_db()
     set_admin(ADMIN_USER_ID, True)
 
