@@ -4,6 +4,10 @@ import os
 import io
 import csv
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from telegram import (
     Update,
     InlineQuery,
@@ -17,7 +21,6 @@ from telegram import (
     BotCommandScopeAllChatAdministrators,
     MenuButtonCommands,
 )
-from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -99,8 +102,6 @@ async def get_unjoined_channels(bot, user_id: int):
             if member.status in ("left", "kicked"):
                 unjoined.append(ch)
         except TelegramError as e:
-            # If the bot isn't admin in the channel or channel is invalid,
-            # don't block users because of a misconfiguration - just log it.
             logger.warning(f"Could not verify membership for @{username}: {e}")
             continue
 

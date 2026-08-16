@@ -25,7 +25,7 @@ def get_conn():
         conn.autocommit = False
         return conn
     elif HAS_SQLITE:
-        DB_PATH = os.path.join(os.path.expanduser("~"), "Downloads", "pvt", "bot_data.db")
+        DB_PATH = os.path.join(os.path.expanduser("~"), "download", "bot_data.db")
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
@@ -38,7 +38,7 @@ def init_db():
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            user_id BIGINT PRIMARY KEY,
+            user_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
             last_name TEXT,
@@ -53,8 +53,8 @@ def init_db():
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS downloads (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             url TEXT,
             platform TEXT,
             status TEXT,
@@ -64,9 +64,9 @@ def init_db():
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS queue (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT,
-            chat_id BIGINT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            chat_id INTEGER,
             url TEXT,
             status TEXT DEFAULT 'pending',
             created_at TEXT,
@@ -81,7 +81,7 @@ def init_db():
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS required_channels (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             channel_username TEXT,
             channel_id TEXT,
             is_required INTEGER DEFAULT 1,
@@ -95,11 +95,11 @@ def init_db():
 def ensure_user(user_id: int, username: str = "", first_name: str = "", last_name: str = ""):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT user_id, is_admin FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT user_id, is_admin FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     if not row:
         c.execute(
-            "INSERT INTO users (user_id, username, first_name, last_name, created_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO users (user_id, username, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)",
             (user_id, username, first_name, last_name, datetime.now().isoformat()),
         )
         conn.commit()
@@ -109,7 +109,7 @@ def ensure_user(user_id: int, username: str = "", first_name: str = "", last_nam
 def is_admin(user_id: int) -> bool:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT is_admin FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT is_admin FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     conn.close()
     return bool(row and row[0])
@@ -118,7 +118,7 @@ def is_admin(user_id: int) -> bool:
 def set_admin(user_id: int, admin: bool = True):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET is_admin = %s WHERE user_id = %s", (1 if admin else 0, user_id))
+    c.execute("UPDATE users SET is_admin = ? WHERE user_id = ?", (1 if admin else 0, user_id))
     conn.commit()
     conn.close()
 
@@ -126,7 +126,7 @@ def set_admin(user_id: int, admin: bool = True):
 def is_banned(user_id: int) -> bool:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT is_banned FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT is_banned FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     conn.close()
     return bool(row and row[0])
@@ -135,7 +135,7 @@ def is_banned(user_id: int) -> bool:
 def ban_user(user_id: int, banned: bool = True):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET is_banned = %s WHERE user_id = %s", (1 if banned else 0, user_id))
+    c.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (1 if banned else 0, user_id))
     conn.commit()
     conn.close()
 
@@ -145,7 +145,7 @@ def increment_download(user_id: int):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "UPDATE users SET downloads_today = downloads_today + 1, last_download_date = %s WHERE user_id = %s",
+        "UPDATE users SET downloads_today = downloads_today + 1, last_download_date = ? WHERE user_id = ?",
         (today, user_id),
     )
     conn.commit()
@@ -156,7 +156,7 @@ def add_download_record(user_id: int, url: str, platform: str, status: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO downloads (user_id, url, platform, status, created_at) VALUES (%s, %s, %s, %s, %s)",
+        "INSERT INTO downloads (user_id, url, platform, status, created_at) VALUES (?, ?, ?, ?, ?)",
         (user_id, url, platform, status, datetime.now().isoformat()),
     )
     conn.commit()
@@ -167,7 +167,7 @@ def add_to_queue(user_id: int, chat_id: int, url: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO queue (user_id, chat_id, url, status, created_at) VALUES (%s, %s, %s, %s, %s)",
+        "INSERT INTO queue (user_id, chat_id, url, status, created_at) VALUES (?, ?, ?, ?, ?)",
         (user_id, chat_id, url, "pending", datetime.now().isoformat()),
     )
     conn.commit()
@@ -190,7 +190,7 @@ def mark_queue_item_processed(queue_id: int, status: str = "completed"):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "UPDATE queue SET status = %s, processed_at = %s WHERE id = %s",
+        "UPDATE queue SET status = ?, processed_at = ? WHERE id = ?",
         (status, datetime.now().isoformat(), queue_id),
     )
     conn.commit()
@@ -248,7 +248,7 @@ def get_recent_downloads(limit: int = 20):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "SELECT * FROM downloads ORDER BY created_at DESC LIMIT %s",
+        "SELECT * FROM downloads ORDER BY created_at DESC LIMIT ?",
         (limit,),
     )
     rows = c.fetchall()
@@ -261,7 +261,7 @@ def clear_old_downloads(days: int = 30):
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM downloads WHERE created_at < %s", (cutoff,))
+    c.execute("DELETE FROM downloads WHERE created_at < ?", (cutoff,))
     deleted = c.rowcount
     conn.commit()
     conn.close()
@@ -278,7 +278,7 @@ def set_maintenance(enabled: bool):
         )
     """)
     c.execute(
-        "INSERT INTO bot_settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        "INSERT OR REPLACE INTO bot_settings (key, value) VALUES (?, ?)",
         ("maintenance", "1" if enabled else "0"),
     )
     conn.commit()
@@ -297,7 +297,7 @@ def is_maintenance():
 def get_setting(key: str, default: str = "") -> str:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT value FROM bot_settings WHERE key = %s", (key,))
+    c.execute("SELECT value FROM bot_settings WHERE key = ?", (key,))
     row = c.fetchone()
     conn.close()
     return row[0] if row else default
@@ -307,7 +307,7 @@ def set_setting(key: str, value: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO bot_settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        "INSERT OR REPLACE INTO bot_settings (key, value) VALUES (?, ?)",
         (key, value),
     )
     conn.commit()
@@ -317,7 +317,7 @@ def set_setting(key: str, value: str):
 def get_user_details(user_id: int) -> Optional[Dict]:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     conn.close()
     if row:
@@ -330,7 +330,7 @@ def get_user_downloads(user_id: int, limit: int = 20) -> List[Dict]:
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "SELECT * FROM downloads WHERE user_id = %s ORDER BY created_at DESC LIMIT %s",
+        "SELECT * FROM downloads WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
         (user_id, limit),
     )
     rows = c.fetchall()
@@ -344,32 +344,32 @@ def get_analytics(days: int = 7) -> Dict:
     c = conn.cursor()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
-    c.execute("SELECT COUNT(*) FROM users WHERE created_at >= %s", (cutoff,))
+    c.execute("SELECT COUNT(*) FROM users WHERE created_at >= ?", (cutoff,))
     new_users = c.fetchone()[0]
 
-    c.execute("SELECT COUNT(*) FROM downloads WHERE created_at >= %s", (cutoff,))
+    c.execute("SELECT COUNT(*) FROM downloads WHERE created_at >= ?", (cutoff,))
     total_downloads = c.fetchone()[0]
 
     c.execute(
-        "SELECT COUNT(*) FROM downloads WHERE created_at >= %s AND status = 'completed'",
+        "SELECT COUNT(*) FROM downloads WHERE created_at >= ? AND status = 'completed'",
         (cutoff,),
     )
     completed = c.fetchone()[0]
 
     c.execute(
-        "SELECT COUNT(*) FROM downloads WHERE created_at >= %s AND status = 'failed'",
+        "SELECT COUNT(*) FROM downloads WHERE created_at >= ? AND status = 'failed'",
         (cutoff,),
     )
     failed = c.fetchone()[0]
 
-    c.execute("SELECT platform, COUNT(*) as cnt FROM downloads WHERE created_at >= %s GROUP BY platform", (cutoff,))
+    c.execute("SELECT platform, COUNT(*) as cnt FROM downloads WHERE created_at >= ? GROUP BY platform", (cutoff,))
     platforms = [dict(zip([desc[0] for desc in c.description], row)) for row in c.fetchall()]
 
     c.execute(
         """
         SELECT date(created_at) as day, COUNT(*) as cnt
         FROM downloads
-        WHERE created_at >= %s
+        WHERE created_at >= ?
         GROUP BY date(created_at)
         ORDER BY day DESC
         LIMIT 7
@@ -420,7 +420,7 @@ def add_required_channel(channel_username: str, channel_id: str = ""):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO required_channels (channel_username, channel_id, created_at) VALUES (%s, %s, %s)",
+        "INSERT INTO required_channels (channel_username, channel_id, created_at) VALUES (?, ?, ?)",
         (channel_username, channel_id, datetime.now().isoformat()),
     )
     conn.commit()
@@ -440,7 +440,7 @@ def get_required_channels() -> List[Dict]:
 def remove_required_channel(channel_id: int):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM required_channels WHERE id = %s", (channel_id,))
+    c.execute("DELETE FROM required_channels WHERE id = ?", (channel_id,))
     conn.commit()
     conn.close()
 
@@ -449,7 +449,7 @@ def set_premium(user_id: int, days: int = 30):
     premium_until = (datetime.now() + timedelta(days=days)).isoformat()
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET premium_until = %s WHERE user_id = %s", (premium_until, user_id))
+    c.execute("UPDATE users SET premium_until = ? WHERE user_id = ?", (premium_until, user_id))
     conn.commit()
     conn.close()
 
@@ -457,7 +457,7 @@ def set_premium(user_id: int, days: int = 30):
 def remove_premium(user_id: int):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET premium_until = NULL WHERE user_id = %s", (user_id,))
+    c.execute("UPDATE users SET premium_until = NULL WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
@@ -467,7 +467,7 @@ def get_premium_users() -> List[Dict]:
     c = conn.cursor()
     now = datetime.now().isoformat()
     c.execute(
-        "SELECT user_id, username, first_name, premium_until FROM users WHERE premium_until IS NOT NULL AND premium_until > %s",
+        "SELECT user_id, username, first_name, premium_until FROM users WHERE premium_until IS NOT NULL AND premium_until > ?",
         (now,),
     )
     rows = c.fetchall()
@@ -479,7 +479,7 @@ def get_premium_users() -> List[Dict]:
 def is_premium(user_id: int) -> bool:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT premium_until FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT premium_until FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     conn.close()
     if not row or not row[0]:
@@ -490,7 +490,7 @@ def is_premium(user_id: int) -> bool:
 def set_user_download_limit(user_id: int, limit: int):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE users SET download_limit = %s WHERE user_id = %s", (limit, user_id))
+    c.execute("UPDATE users SET download_limit = ? WHERE user_id = ?", (limit, user_id))
     conn.commit()
     conn.close()
 
@@ -498,7 +498,7 @@ def set_user_download_limit(user_id: int, limit: int):
 def get_user_download_limit(user_id: int) -> int:
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT download_limit FROM users WHERE user_id = %s", (user_id,))
+    c.execute("SELECT download_limit FROM users WHERE user_id = ?", (user_id,))
     row = c.fetchone()
     conn.close()
     return row[0] if row else 20
@@ -514,7 +514,7 @@ def get_top_users(limit: int = 10) -> List[Dict]:
         LEFT JOIN downloads d ON u.user_id = d.user_id
         GROUP BY u.user_id
         ORDER BY total_downloads DESC
-        LIMIT %s
+        LIMIT ?
         """,
         (limit,),
     )
@@ -535,4 +535,4 @@ def get_platform_stats() -> Dict:
 
 
 def backup_database() -> str:
-    return "Supabase backup: Use Supabase dashboard to export your database."
+    return "SQLite backup: Use your server backup for database."
